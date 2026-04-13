@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隱形眼鏡訂購系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f1ec;
+    --surface: #fdfcfa;
+    --surface2: #f0ede6;
+    --ink: #1a1916;
+    --ink2: #5a5750;
+    --ink3: #9a958e;
+    --accent: #c8603a;
+    --accent-light: #f5e8e2;
+    --accent2: #3a6bc8;
+    --border: #ddd9d2;
+    --border2: #ccc8c0;
+    --green: #2d7a4f;
+    --green-light: #e2f0e8;
+    --r: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.6;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+  }
+  #topbar .logo {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+  }
+  #topbar .logo span { color: var(--accent); }
+  #topbar .spacer { flex: 1; }
+
+  /* ── MAIN LAYOUT ── */
+  #main {
+    display: flex;
+    height: 100vh;
+    padding-top: 52px;
+  }
+
+  /* ── LEFT: PDF VIEWER ── */
+  #pdfPane {
+    width: 48%;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: #3a3835;
+  }
+
+  #pdfToolbar {
+    background: #2a2826;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  #pdfToolbar .label {
+    font-size: 11px;
+    color: #a09890;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+  .pdf-btn {
+    width: 30px; height: 30px;
+    background: #3a3835;
+    border: 1px solid #504c48;
+    border-radius: 4px;
+    color: #d0ccc6;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .pdf-btn:hover { background: #484440; border-color: #6a6460; }
+  #zoomLevel {
+    font-size: 12px;
+    color: #a09890;
+    font-family: 'DM Mono', monospace;
+    min-width: 42px;
+    text-align: center;
+  }
+  #pageInfo {
+    font-size: 11px;
+    color: #706c68;
+    font-family: 'DM Mono', monospace;
+    margin-left: auto;
+  }
+
+  #pdfViewport {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  #pdfViewport::-webkit-scrollbar { width: 6px; }
+  #pdfViewport::-webkit-scrollbar-track { background: #2a2826; }
+  #pdfViewport::-webkit-scrollbar-thumb { background: #504c48; border-radius: 3px; }
+
+  .pdf-page-canvas {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    display: block;
+    max-width: 100%;
+  }
+
+  #pdfPlaceholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #605c58;
+    gap: 12px;
+    text-align: center;
+    padding: 40px;
+  }
+  #pdfPlaceholder .icon { font-size: 40px; opacity: 0.5; }
+  #pdfPlaceholder p { font-size: 13px; line-height: 1.7; }
+
+  /* ── RIGHT: ORDER FORM ── */
+  #formPane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 24px 100px;
+    background: var(--bg);
+  }
+  #formPane::-webkit-scrollbar { width: 6px; }
+  #formPane::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .section-header {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.4px;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .section-sub {
+    font-size: 13px;
+    color: var(--ink3);
+    margin-bottom: 20px;
+  }
+
+  /* ── ORDER ROW ── */
+  #orderRows { display: flex; flex-direction: column; gap: 14px; }
+
+  .order-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .order-row:hover { border-color: var(--border2); }
+
+  .row-num {
+    position: absolute;
+    top: -10px; left: 14px;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    padding: 1px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .row-delete {
+    position: absolute;
+    top: 10px; right: 12px;
+    width: 22px; height: 22px;
+    border: none; background: none;
+    color: var(--ink3);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .row-delete:hover { background: #fdecea; color: #c0392b; }
+
+  .fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px 12px;
+    margin-top: 8px;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+  .field-group.full { grid-column: 1 / -1; }
+  .field-group.span2 { grid-column: span 2; }
+
+  label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink2);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  input[type="text"], input[type="number"], select, textarea {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 7px 10px;
+    width: 100%;
+    transition: border-color 0.15s, background 0.15s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+  }
+  select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239a958e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+  textarea { resize: vertical; min-height: 60px; }
+
+  /* ── BUTTONS ── */
+  .btn-add {
+    width: 100%;
+    margin-top: 8px;
+    padding: 11px;
+    background: var(--surface);
+    border: 1.5px dashed var(--border2);
+    border-radius: 10px;
+    color: var(--ink3);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  .btn-confirm {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: -0.2px;
+  }
+  .btn-confirm:hover { background: #b8522e; transform: translateY(-1px); }
+  .btn-confirm:active { transform: translateY(0); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,25,22,0.55);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(2px);
+  }
+  .modal-box {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: -0.4px;
+  }
+  .modal-sub {
+    font-size: 13px;
+    color: var(--ink3);
+    margin-bottom: 20px;
+  }
+
+  /* Name input modal */
+  #nameModal .name-input {
+    font-size: 15px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-cancel {
+    padding: 9px 18px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--ink2);
+    transition: all 0.15s;
+  }
+  .btn-cancel:hover { border-color: var(--border2); }
+  .btn-primary {
+    padding: 9px 20px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--r);
+    color: white;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary:hover { background: #b8522e; }
+  .btn-primary:disabled { background: var(--border2); cursor: not-allowed; }
+
+  /* Order summary */
+  #summaryItems { margin: 14px 0; display: flex; flex-direction: column; gap: 8px; }
+  .summary-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .summary-item .si-head {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 4px;
+  }
+  .summary-item .si-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px 8px;
+    font-size: 12px;
+  }
+  .si-label { color: var(--ink3); font-size: 11px; }
+  .si-val { font-weight: 500; font-size: 12px; }
+
+  .nina-notice {
+    background: var(--green-light);
+    border: 1px solid #b2ddc2;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 14px 0;
+    font-size: 13px;
+    color: var(--green);
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .nina-notice::before { content: "📢"; flex-shrink: 0; }
+
+  .submitter-tag {
+    font-size: 12px;
+    color: var(--ink3);
+    margin-bottom: 12px;
+  }
+  .submitter-tag span { font-weight: 600; color: var(--ink); }
+
+  /* Success state */
+  #successModal .checkmark {
+    width: 60px; height: 60px;
+    background: var(--green-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 16px;
+  }
+  #successModal .modal-title { text-align: center; }
+  #successModal .modal-sub { text-align: center; margin-bottom: 8px; }
+
+  /* Loading spinner */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    body { overflow: auto; }
+
+    #main {
+      flex-direction: column;
+      height: auto;
+      min-height: 100vh;
+      overflow: visible;
+    }
+
+    #pdfPane {
+      width: 100%;
+      min-width: 0;
+      height: 55vw;
+      min-height: 220px;
+      max-height: 360px;
+      border-right: none;
+      border-bottom: 1px solid #504c48;
+      flex-shrink: 0;
+    }
+
+    #pdfToolbar {
+      padding: 6px 10px;
+      gap: 5px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .pdf-btn { width: 26px; height: 26px; font-size: 14px; }
+    #zoomLevel { min-width: 34px; font-size: 11px; }
+    #pageInfo { font-size: 10px; }
+
+    #formPane {
+      width: 100%;
+      overflow-y: visible;
+      padding: 16px 14px 80px;
+    }
+
+    .fields-grid { grid-template-columns: 1fr 1fr; }
+    .field-group.span2 { grid-column: span 2; }
+
+    .modal-box { padding: 20px 18px 18px; }
+  }
+
+  @media (max-width: 480px) {
+    #pdfPane {
+      height: 60vw;
+      max-height: 280px;
+    }
+    .fields-grid { grid-template-columns: 1fr 1fr; }
+    .field-group.full { grid-column: 1 / -1; }
+    .si-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 360px) {
+    .fields-grid { grid-template-columns: 1fr; }
+    .field-group.span2, .field-group.full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">隱形眼鏡<span>訂購系統</span></div>
+  <div class="spacer"></div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div id="main">
+
+  <!-- LEFT: PDF VIEWER -->
+  <div id="pdfPane">
+    <div id="pdfToolbar">
+      <span class="label">型錄</span>
+      <button class="pdf-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+      <span id="zoomLevel">100%</span>
+      <button class="pdf-btn" onclick="zoomIn()" title="Zoom In">+</button>
+      <button class="pdf-btn" onclick="resetZoom()" title="Fit" style="font-size:12px;width:auto;padding:0 8px;">FIT</button>
+      <button class="pdf-btn" onclick="prevPage()" title="Previous">‹</button>
+      <button class="pdf-btn" onclick="nextPage()" title="Next">›</button>
+      <span id="pageInfo">— / —</span>
+    </div>
+    <div id="pdfViewport">
+      <div id="pdfPlaceholder">
+        <div class="icon">📄</div>
+        <p>產品型錄（DM）載入中…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: ORDER FORM -->
+  <div id="formPane">
+    <div class="section-header">新增訂單</div>
+    <div class="section-sub">請填寫以下品項，可新增任意筆數。</div>
+
+    <div id="orderRows"></div>
+
+    <button class="btn-add" onclick="addRow()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      新增品項
+    </button>
+
+    <button class="btn-confirm" onclick="openNameModal()">確認訂單 →</button>
+  </div>
+</div>
+
+<!-- ── MODAL: NAME ── -->
+<div id="nameModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">請問是誰下訂單？</div>
+    <div class="modal-sub">請輸入您的姓名或暱稱以繼續。</div>
+    <input type="text" id="customerName" class="name-input" placeholder="您的姓名 / 暱稱…" style="width:100%;font-size:15px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-family:inherit;outline:none;margin-bottom:16px;">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('nameModal')">取消</button>
+      <button class="btn-primary" onclick="openSummary()">繼續 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: ORDER SUMMARY ── -->
+<div id="summaryModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">訂單摘要</div>
+    <div class="modal-sub">送出前請確認您的訂單內容。</div>
+    <div id="summitterTag" class="submitter-tag"></div>
+    <div id="summaryItems"></div>
+    <div class="nina-notice">訂單送出後，請記得通知 Nina。</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('summaryModal')">返回修改</button>
+      <button class="btn-primary" id="submitBtn" onclick="submitOrder()">送出訂單</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: SUCCESS ── -->
+<div id="successModal" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="text-align:center">
+    <div class="checkmark">✓</div>
+    <div class="modal-title">訂單已送出！</div>
+    <div class="modal-sub">您的訂單已成功記錄。</div>
+    <div class="nina-notice" style="text-align:left">訂單送出後，請記得通知 Nina。</div>
+    <div class="modal-actions" style="justify-content:center;margin-top:8px">
+      <button class="btn-primary" onclick="resetForm()">再下一筆訂單</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIGURATION
+//  Replace GAS_URL with your deployed Apps Script Web App URL
+// ══════════════════════════════════════════════
+const CONFIG = {
+  GAS_URL: "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID_HERE/exec",
+  // DM.pdf 與此 HTML 放在同一資料夾即可自動載入，無需另行設定
+  PDF_FILE: "DM.pdf"
+};
+
+// ══════════════════════════════════════════════
+//  PDF VIEWER
+// ══════════════════════════════════════════════
+let pdfDoc = null;
+let pdfScale = 1.0;
+let pdfRendering = false;
+let pdfPages = [];
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+async function loadPdf(url) {
+  const viewport = document.getElementById('pdfViewport');
+  const placeholder = document.getElementById('pdfPlaceholder');
+  placeholder.style.display = 'flex';
+  placeholder.innerHTML = `<div class="icon">⏳</div><p>載入型錄中…</p>`;
+  pdfPages = [];
+  try {
+    const loadTask = pdfjsLib.getDocument({
+      url: url,
+      withCredentials: false,
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true
+    });
+    pdfDoc = await loadTask.promise;
+    placeholder.style.display = 'none';
+    viewport.querySelectorAll('canvas').forEach(c => c.remove());
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'pdf-page-canvas';
+      canvas.dataset.page = i;
+      viewport.appendChild(canvas);
+      pdfPages.push(canvas);
+    }
+    await renderAllPages();
+    updatePageInfo();
+  } catch(e) {
+    placeholder.style.display = 'flex';
+    placeholder.innerHTML = `<div class="icon">⚠️</div><p>無法載入型錄（DM.pdf）。<br><small>請確認 DM.pdf 與此 HTML 檔案放在同一資料夾。</small></p>`;
+  }
+}
+
+async function renderAllPages() {
+  if (!pdfDoc) return;
+  for (let i = 0; i < pdfPages.length; i++) {
+    await renderPage(i + 1, pdfPages[i]);
+  }
+}
+
+async function renderPage(num, canvas) {
+  const page = await pdfDoc.getPage(num);
+  const vp = page.getViewport({ scale: pdfScale });
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+}
+
+function zoomIn() {
+  pdfScale = Math.min(pdfScale + 0.2, 4.0);
+  updateZoom();
+}
+function zoomOut() {
+  pdfScale = Math.max(pdfScale - 0.2, 0.4);
+  updateZoom();
+}
+function resetZoom() {
+  pdfScale = 1.0;
+  updateZoom();
+}
+function updateZoom() {
+  document.getElementById('zoomLevel').textContent = Math.round(pdfScale * 100) + '%';
+  renderAllPages();
+}
+
+function prevPage() {
+  const vp = document.getElementById('pdfViewport');
+  const canvases = vp.querySelectorAll('canvas');
+  if (canvases.length > 0) {
+    const visible = [...canvases].find(c => c.getBoundingClientRect().top >= vp.getBoundingClientRect().top - 20);
+    if (visible) {
+      const idx = parseInt(visible.dataset.page) - 2;
+      if (idx >= 0) canvases[idx].scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+}
+function nextPage() {
+  const vp = document.getElementById('pdfViewport');
+  const canvases = vp.querySelectorAll('canvas');
+  if (canvases.length > 0) {
+    const visible = [...canvases].find(c => c.getBoundingClientRect().top >= vp.getBoundingClientRect().top - 20);
+    if (visible) {
+      const idx = parseInt(visible.dataset.page);
+      if (idx < canvases.length) canvases[idx].scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+}
+
+function updatePageInfo() {
+  document.getElementById('pageInfo').textContent = pdfDoc
+    ? `共 ${pdfDoc.numPages} 頁`
+    : '— / —';
+}
+
+// 頁面載入時自動讀取同目錄的 DM.pdf
+window.addEventListener('DOMContentLoaded', () => {
+  loadPdf(CONFIG.PDF_FILE);
+  addRow();
+  addRow();
+});
+
+// ══════════════════════════════════════════════
+//  ORDER ROWS
+// ══════════════════════════════════════════════
+let rowCount = 0;
+
+function addRow() {
+  rowCount++;
+  const n = rowCount;
+  const div = document.createElement('div');
+  div.className = 'order-row';
+  div.id = `row_${n}`;
+  div.innerHTML = `
+    <span class="row-num">品項 ${n}</span>
+    ${n > 1 ? `<button class="row-delete" onclick="removeRow(${n})" title="刪除">✕</button>` : ''}
+    <div class="fields-grid">
+      <div class="field-group">
+        <label>產品代碼</label>
+        <input type="text" name="code" placeholder="例：NX-01A">
+      </div>
+      <div class="field-group">
+        <label>度數</label>
+        <input type="text" name="power" placeholder="例：-3.00">
+      </div>
+      <div class="field-group">
+        <label>顏色</label>
+        <input type="text" name="color" placeholder="例：棕色">
+      </div>
+      <div class="field-group">
+        <label>散光度（Cyl）</label>
+        <input type="text" name="cyl" placeholder="例：-0.75">
+      </div>
+      <div class="field-group">
+        <label>軸度（Axis）</label>
+        <input type="text" name="axis" placeholder="例：180">
+      </div>
+      <div class="field-group">
+        <label>數量</label>
+        <input type="number" name="qty" placeholder="1" min="1" value="">
+      </div>
+      <div class="field-group full">
+        <label>備註</label>
+        <textarea name="notes" placeholder="特殊需求或說明…" rows="2"></textarea>
+      </div>
+    </div>
+  `;
+  document.getElementById('orderRows').appendChild(div);
+}
+
+function removeRow(n) {
+  const row = document.getElementById(`row_${n}`);
+  if (row) row.remove();
+}
+
+function getOrderData() {
+  const rows = document.querySelectorAll('.order-row');
+  const items = [];
+  rows.forEach((row, i) => {
+    const code   = row.querySelector('[name="code"]').value.trim();
+    const power  = row.querySelector('[name="power"]').value.trim();
+    const color  = row.querySelector('[name="color"]').value.trim();
+    const cyl    = row.querySelector('[name="cyl"]').value.trim();
+    const axis   = row.querySelector('[name="axis"]').value.trim();
+    const qty    = row.querySelector('[name="qty"]').value.trim();
+    const notes  = row.querySelector('[name="notes"]').value.trim();
+    if (code || power || color || qty) {
+      items.push({ index: i + 1, code, power, color, cyl, axis, qty, notes });
+    }
+  });
+  return items;
+}
+
+// ══════════════════════════════════════════════
+//  MODALS
+// ══════════════════════════════════════════════
+function openNameModal() {
+  const items = getOrderData();
+  if (items.length === 0) {
+    alert('請至少填寫一筆品項後再確認訂單。');
+    return;
+  }
+  document.getElementById('customerName').value = '';
+  document.getElementById('nameModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('customerName').focus(), 100);
+}
+
+function openSummary() {
+  const name = document.getElementById('customerName').value.trim();
+  if (!name) { alert('請輸入您的姓名或暱稱。'); return; }
+
+  closeModal('nameModal');
+  const items = getOrderData();
+
+  document.getElementById('summitterTag').innerHTML =
+    `訂購人：<span>${name}</span>`;
+
+  const container = document.getElementById('summaryItems');
+  container.innerHTML = '';
+  items.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'summary-item';
+    div.innerHTML = `
+      <div class="si-head">品項 ${it.index} — ${it.code || '（未填代碼）'}</div>
+      <div class="si-grid">
+        <div><div class="si-label">度數</div><div class="si-val">${it.power || '—'}</div></div>
+        <div><div class="si-label">顏色</div><div class="si-val">${it.color || '—'}</div></div>
+        <div><div class="si-label">數量</div><div class="si-val">${it.qty || '—'}</div></div>
+        <div><div class="si-label">Cyl</div><div class="si-val">${it.cyl || '—'}</div></div>
+        <div><div class="si-label">Axis</div><div class="si-val">${it.axis || '—'}</div></div>
+        <div><div class="si-label">備註</div><div class="si-val">${it.notes || '—'}</div></div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  document.getElementById('summaryModal').style.display = 'flex';
+}
+
+async function submitOrder() {
+  const name = document.getElementById('customerName').value.trim() ||
+               document.getElementById('summitterTag').querySelector('span')?.textContent || '';
+  const items = getOrderData();
+  const btn = document.getElementById('submitBtn');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>送出中…';
+
+  const payload = {
+    submitter: name,
+    timestamp: new Date().toISOString(),
+    items: items
+  };
+
+  try {
+    await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      mode: 'no-cors'
+    });
+    closeModal('summaryModal');
+    document.getElementById('successModal').style.display = 'flex';
+  } catch(e) {
+    alert('送出失敗，請確認網路連線後再試一次。\n\n' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '送出訂單';
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+function resetForm() {
+  closeModal('successModal');
+  document.getElementById('orderRows').innerHTML = '';
+  rowCount = 0;
+  addRow();
+  addRow();
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) closeModal(this.id);
+  });
+});
+
+// Enter key in name input
+document.getElementById('customerName').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') openSummary();
+});
+</script>
+</body>
+</html>
